@@ -1,6 +1,11 @@
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { jobScopeWhere, applicationScopeWhere } from "@/lib/rbac";
+import {
+  jobScopeWhere,
+  applicationScopeWhere,
+  getVisibleLocationIds,
+} from "@/lib/rbac";
+import { DashboardScopeFilter } from "@/components/admin/dashboard/scope-filter";
 import { ROLE_LABELS, STAGE_LABELS } from "@/lib/constants";
 import { KpiCard } from "@/components/admin/dashboard/kpi-card";
 import {
@@ -25,11 +30,43 @@ import {
 
 export const metadata = { title: "Dashboard | Stress-Free Hiring" };
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser();
+  const params = await searchParams;
+  const locParam = Array.isArray(params.loc) ? params.loc[0] : params.loc;
 
-  const jobWhere = await jobScopeWhere(user);
-  const appWhere = await applicationScopeWhere(user);
+  // Shops this user oversees (null = all, for Corporate). The dashboard can be
+  // narrowed to any one of these via the location filter.
+  const visibleIds = await getVisibleLocationIds(user);
+  const locationOptions = await prisma.location.findMany({
+    where: visibleIds === null ? {} : { id: { in: visibleIds } },
+    select: { id: true, name: true, city: true, state: true },
+    orderBy: [{ state: "asc" }, { city: "asc" }],
+  });
+
+  // Validated, in-scope location filter (guards against URL tampering).
+  const loc =
+    locParam &&
+    (visibleIds === null || visibleIds.includes(locParam)) &&
+    locationOptions.some((l) => l.id === locParam)
+      ? locParam
+      : null;
+
+  const jobWhere = loc
+    ? { locations: { some: { locationId: loc } } }
+    : await jobScopeWhere(user);
+  const appWhere = loc
+    ? {
+        OR: [
+          { preferredLocationId: loc },
+          { job: { locations: { some: { locationId: loc } } } },
+        ],
+      }
+    : await applicationScopeWhere(user);
 
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -99,20 +136,14 @@ export default async function AdminDashboardPage() {
   for (const app of allApps) {
     stageCounts[app.stage] = (stageCounts[app.stage] ?? 0) + 1;
   }
-  const stageData: StageDatum[] = [
-    "APPLIED",
-    "SCREENING",
-    "INTERVIEW",
-    "OFFER",
-    "HIRED",
-    "REJECTED",
-    "WITHDRAWN",
-  ]
-    .filter((s) => stageCounts[s] !== undefined)
-    .map((s) => ({
-      stage: STAGE_LABELS[s as keyof typeof STAGE_LABELS] ?? s,
-      count: stageCounts[s] ?? 0,
-    }));
+  // Always show the full funnel so the chart is complete for every scope,
+  // even when a stage has zero applications.
+  const stageData: StageDatum[] = (
+    ["APPLIED", "SCREENING", "INTERVIEW", "OFFER", "HIRED", "REJECTED"] as const
+  ).map((s) => ({
+    stage: STAGE_LABELS[s],
+    count: stageCounts[s] ?? 0,
+  }));
 
   // Daily trend — last 14 days
   const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -140,15 +171,17 @@ export default async function AdminDashboardPage() {
   // Scope context label
   // ---------------------------------------------------------------------------
 
+  const selectedLoc = loc ? locationOptions.find((l) => l.id === loc) : null;
   let scopeLabel = "All locations";
   if (user.role === "REGIONAL") scopeLabel = "Regional view";
   else if (user.role === "DISTRICT") scopeLabel = "District view";
   else if (user.role === "GM") scopeLabel = "Your location";
+  if (selectedLoc) scopeLabel = `${selectedLoc.city}, ${selectedLoc.state}`;
 
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
@@ -158,6 +191,15 @@ export default async function AdminDashboardPage() {
             <span>{scopeLabel}</span>
           </p>
         </div>
+        {locationOptions.length > 1 && (
+          <DashboardScopeFilter
+            locations={locationOptions.map((l) => ({
+              id: l.id,
+              label: `${l.city}, ${l.state}`,
+            }))}
+            current={loc ?? ""}
+          />
+        )}
       </div>
 
       {/* KPI cards */}

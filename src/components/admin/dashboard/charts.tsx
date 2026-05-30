@@ -51,23 +51,33 @@ export function StageFunnelChart({ data }: StageFunnelChartProps) {
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis
                 dataKey="stage"
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 12, fill: "#5b5b6b" }}
                 className="fill-muted-foreground"
               />
               <YAxis
                 allowDecimals={false}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 12, fill: "#5b5b6b" }}
                 className="fill-muted-foreground"
               />
               <Tooltip
+                cursor={{ fill: "rgba(106, 63, 198, 0.08)" }}
                 contentStyle={{
-                  borderRadius: "8px",
-                  border: "1px solid hsl(var(--border))",
-                  background: "hsl(var(--card))",
-                  color: "hsl(var(--foreground))",
+                  borderRadius: "10px",
+                  border: "1px solid #e7e3ef",
+                  background: "#ffffff",
+                  color: "#0a0a0a",
+                  fontSize: "13px",
+                  boxShadow: "0 6px 20px rgba(20, 10, 40, 0.15)",
+                  padding: "8px 12px",
                 }}
+                labelStyle={{
+                  color: "#0a0a0a",
+                  fontWeight: 600,
+                  marginBottom: "2px",
+                }}
+                itemStyle={{ color: "#412473", fontWeight: 500 }}
               />
-              <Bar dataKey="count" name="Applications" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="count" name="Applications" fill="#6a3fc6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -111,28 +121,38 @@ export function DailyTrendChart({ data }: DailyTrendChartProps) {
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 10 }}
+                tick={{ fontSize: 11, fill: "#5b5b6b" }}
                 className="fill-muted-foreground"
                 interval="preserveStartEnd"
               />
               <YAxis
                 allowDecimals={false}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 12, fill: "#5b5b6b" }}
                 className="fill-muted-foreground"
               />
               <Tooltip
+                cursor={{ fill: "rgba(106, 63, 198, 0.08)" }}
                 contentStyle={{
-                  borderRadius: "8px",
-                  border: "1px solid hsl(var(--border))",
-                  background: "hsl(var(--card))",
-                  color: "hsl(var(--foreground))",
+                  borderRadius: "10px",
+                  border: "1px solid #e7e3ef",
+                  background: "#ffffff",
+                  color: "#0a0a0a",
+                  fontSize: "13px",
+                  boxShadow: "0 6px 20px rgba(20, 10, 40, 0.15)",
+                  padding: "8px 12px",
                 }}
+                labelStyle={{
+                  color: "#0a0a0a",
+                  fontWeight: 600,
+                  marginBottom: "2px",
+                }}
+                itemStyle={{ color: "#412473", fontWeight: 500 }}
               />
               <Line
                 type="monotone"
                 dataKey="count"
                 name="Applications"
-                stroke="hsl(var(--primary))"
+                stroke="#6a3fc6"
                 strokeWidth={2}
                 dot={{ r: 3 }}
                 activeDot={{ r: 5 }}

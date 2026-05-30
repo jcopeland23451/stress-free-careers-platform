@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
+import { prisma } from "./db";
 import type { Role } from "./constants";
 
 const rawSecret = process.env.AUTH_SECRET;
@@ -53,21 +54,43 @@ export async function clearSessionCookie(): Promise<void> {
 export async function getCurrentUser(): Promise<SessionUser | null> {
   const store = await cookies();
   const token = store.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, secret);
-    return {
-      id: String(payload.id),
-      email: String(payload.email),
-      name: String(payload.name),
-      role: payload.role as Role,
-      regionId: (payload.regionId as string | null) ?? null,
-      districtId: (payload.districtId as string | null) ?? null,
-      locationId: (payload.locationId as string | null) ?? null,
-    };
-  } catch {
-    return null;
+  if (token) {
+    try {
+      const { payload } = await jwtVerify(token, secret);
+      return {
+        id: String(payload.id),
+        email: String(payload.email),
+        name: String(payload.name),
+        role: payload.role as Role,
+        regionId: (payload.regionId as string | null) ?? null,
+        districtId: (payload.districtId as string | null) ?? null,
+        locationId: (payload.locationId as string | null) ?? null,
+      };
+    } catch {
+      // invalid/expired token — fall through to the demo default
+    }
   }
+  // DEMO mode: with no valid session, default to the corporate demo user so the
+  // admin is browsable without signing in. Set DEMO_MODE=false to require login.
+  if (process.env.DEMO_MODE !== "false") {
+    return getDemoUser("CORPORATE");
+  }
+  return null;
+}
+
+/** Look up a seeded demo user by role and return it as a SessionUser. */
+export async function getDemoUser(role: Role): Promise<SessionUser | null> {
+  const user = await prisma.user.findFirst({ where: { role } });
+  if (!user) return null;
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role as Role,
+    regionId: user.regionId,
+    districtId: user.districtId,
+    locationId: user.locationId,
+  };
 }
 
 /** Alias matching the Next docs convention. */

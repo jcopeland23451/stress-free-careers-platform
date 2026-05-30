@@ -3,7 +3,7 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { setSessionCookie, clearSessionCookie } from "./auth";
+import { setSessionCookie, clearSessionCookie, getDemoUser } from "./auth";
 import type { Role } from "./constants";
 
 export type LoginState = { error?: string };
@@ -65,5 +65,12 @@ export async function loginAction(
 
 export async function logoutAction(): Promise<void> {
   await clearSessionCookie();
-  redirect("/login");
+  redirect("/admin");
+}
+
+/** Demo convenience: instantly "log in" as one of the seeded demo roles. */
+export async function setDemoRole(role: Role): Promise<void> {
+  const user = await getDemoUser(role);
+  if (user) await setSessionCookie(user);
+  redirect("/admin");
 }

@@ -5,7 +5,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LogOut, ChevronDown } from "lucide-react";
 import { ADMIN_NAV } from "@/lib/nav";
-import { ROLE_LABELS, type Role } from "@/lib/constants";
+import { type Role } from "@/lib/constants";
+import { DemoRoleSwitcher } from "@/components/admin/demo-role-switcher";
 import { logoutAction } from "@/lib/auth-actions";
 import { cn, initials } from "@/lib/utils";
 import {
@@ -62,9 +63,7 @@ export function AdminShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center justify-between border-b bg-background px-4">
-          <p className="text-sm text-muted-foreground">
-            {ROLE_LABELS[user.role]}
-          </p>
+          <DemoRoleSwitcher currentRole={user.role} />
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">

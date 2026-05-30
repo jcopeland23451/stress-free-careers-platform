@@ -18,16 +18,15 @@ const CORPORATE_EMAIL = "corporate@stressfree.test";
 const GM_EMAIL = "gm@stressfree.test";
 const PASSWORD = "demo1234";
 
-// ─── 1. Unauthenticated redirect ────────────────────────────────────────────
-test.describe("unauthenticated access", () => {
-  test("visiting /admin while logged out redirects to /login", async ({
+// ─── 1. Demo default access (no login page) ─────────────────────────────────
+test.describe("demo default access", () => {
+  test("visiting /admin without a session shows the corporate demo view", async ({
     page,
   }) => {
-    // Ensure no session cookie is present by using a fresh context (each test
-    // in Playwright gets its own context by default).
+    // Demo mode: no session defaults to the corporate user (no login required).
     await page.goto("/admin");
-    await page.waitForURL(/\/login/);
-    expect(page.url()).toContain("/login");
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByText("All locations")).toBeVisible();
   });
 });
 
