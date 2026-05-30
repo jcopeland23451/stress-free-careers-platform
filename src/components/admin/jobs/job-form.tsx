@@ -24,7 +24,12 @@ import {
   LEVELS,
 } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { Trash2 } from "lucide-react";
 import type { JobTemplate } from "@/generated/prisma/client";
+
+// Radix <Select.Item> forbids an empty-string value, so the "no selection"
+// option uses this sentinel and is mapped back to "" for the hidden inputs.
+const NONE_VALUE = "__none";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,6 +53,8 @@ export interface JobFormProps {
   locations: LocationOption[];
   action: (formData: FormData) => Promise<void>;
   submitLabel?: string;
+  /** Supply to show a delete button (edit mode only). */
+  deleteAction?: () => Promise<void>;
 }
 
 interface JobFormValues {
@@ -77,8 +84,10 @@ export function JobForm({
   locations,
   action,
   submitLabel = "Save Job",
+  deleteAction,
 }: JobFormProps) {
   const [isPending, startTransition] = useTransition();
+  const [isDeleting, startDelete] = useTransition();
 
   // Controlled state for template-prefill and location multi-select
   const [selectedTemplate, setSelectedTemplate] = useState(
@@ -154,6 +163,25 @@ export function JobForm({
     });
   }
 
+  function handleDelete() {
+    if (!deleteAction) return;
+    if (
+      !confirm(
+        "Delete this job posting? This permanently removes the job and its applications. This cannot be undone.",
+      )
+    )
+      return;
+    startDelete(async () => {
+      try {
+        await deleteAction();
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to delete job.",
+        );
+      }
+    });
+  }
+
   const payUnit = payType === "HOURLY" ? "/hr" : "/yr";
 
   return (
@@ -177,12 +205,15 @@ export function JobForm({
           </CardHeader>
           <CardContent>
             <Label htmlFor="template-select">Job Template (optional)</Label>
-            <Select value={selectedTemplate} onValueChange={applyTemplate}>
+            <Select
+              value={selectedTemplate || NONE_VALUE}
+              onValueChange={(v) => applyTemplate(v === NONE_VALUE ? "" : v)}
+            >
               <SelectTrigger id="template-select" className="mt-1 w-full max-w-xs">
                 <SelectValue placeholder="Select a template…" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No template</SelectItem>
+                <SelectItem value={NONE_VALUE}>No template</SelectItem>
                 {templates.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.title}
@@ -238,12 +269,15 @@ export function JobForm({
             {/* Level */}
             <div className="space-y-1.5">
               <Label htmlFor="level-select">Level</Label>
-              <Select value={level} onValueChange={setLevel}>
+              <Select
+                value={level || NONE_VALUE}
+                onValueChange={(v) => setLevel(v === NONE_VALUE ? "" : v)}
+              >
                 <SelectTrigger id="level-select" className="w-full">
                   <SelectValue placeholder="Select level…" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={NONE_VALUE}>None</SelectItem>
                   {LEVELS.map((l) => (
                     <SelectItem key={l} value={l}>
                       {l}
@@ -491,10 +525,22 @@ export function JobForm({
       </Card>
 
       {/* Submit */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3">
         <Button type="submit" disabled={isPending}>
           {isPending ? "Saving…" : submitLabel}
         </Button>
+
+        {deleteAction && (
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={isDeleting}
+            onClick={handleDelete}
+          >
+            <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            {isDeleting ? "Deleting…" : "Delete Job"}
+          </Button>
+        )}
       </div>
     </form>
   );

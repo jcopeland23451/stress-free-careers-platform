@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { jobScopeWhere, getVisibleLocationIds } from "@/lib/rbac";
 import { JobForm } from "@/components/admin/jobs/job-form";
 import { ScreeningQuestions } from "@/components/admin/jobs/screening-questions";
-import { updateJob } from "@/app/admin/jobs/actions";
+import { updateJob, deleteJob } from "@/app/admin/jobs/actions";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, Users } from "lucide-react";
 import { formatPay } from "@/lib/utils";
@@ -66,6 +66,11 @@ export default async function EditJobPage({ params }: PageProps) {
   async function boundUpdateJob(formData: FormData) {
     "use server";
     await updateJob(id, formData);
+  }
+
+  async function boundDeleteJob() {
+    "use server";
+    await deleteJob(id);
   }
 
   const STATUS_BADGE: Record<string, "success" | "warning" | "muted"> = {
@@ -135,6 +140,7 @@ export default async function EditJobPage({ params }: PageProps) {
         templates={templates}
         locations={locations}
         action={boundUpdateJob}
+        deleteAction={boundDeleteJob}
         submitLabel="Save Changes"
       />
 

@@ -25,6 +25,10 @@ import {
 } from "@/lib/constants";
 import { Trash2, Plus } from "lucide-react";
 
+// Radix <Select.Item> forbids an empty-string value, so the "no level" option
+// uses this sentinel and is mapped back to "" for the hidden input.
+const NONE_VALUE = "__none";
+
 // ---------------------------------------------------------------------------
 // Screening question state shape
 // ---------------------------------------------------------------------------
@@ -231,12 +235,15 @@ export function TemplateForm({
 
             <div className="space-y-1.5">
               <Label htmlFor="tpl-level">Level</Label>
-              <Select value={level} onValueChange={setLevel}>
+              <Select
+                value={level || NONE_VALUE}
+                onValueChange={(v) => setLevel(v === NONE_VALUE ? "" : v)}
+              >
                 <SelectTrigger id="tpl-level" className="w-full">
                   <SelectValue placeholder="None" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={NONE_VALUE}>None</SelectItem>
                   {LEVELS.map((l) => (
                     <SelectItem key={l} value={l}>
                       {l}

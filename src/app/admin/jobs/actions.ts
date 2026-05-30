@@ -169,6 +169,63 @@ export async function updateJob(
 }
 
 // ---------------------------------------------------------------------------
+// deleteJob
+// ---------------------------------------------------------------------------
+
+export async function deleteJob(jobId: string): Promise<void> {
+  const user = await requireUser();
+
+  // Verify the job is in the user's scope before removing anything.
+  const scopeWhere = await jobScopeWhere(user);
+  const existing = await prisma.job.findFirst({
+    where: { id: jobId, ...scopeWhere },
+    select: { id: true },
+  });
+  if (!existing) {
+    throw new Error("Job not found or outside your scope.");
+  }
+
+  // Delete dependent rows explicitly (deepest first) so removal succeeds even
+  // when SQLite foreign-key cascade isn't enforced by the driver.
+  await prisma.$transaction(async (tx) => {
+    const apps = await tx.application.findMany({
+      where: { jobId },
+      select: { id: true },
+    });
+    const appIds = apps.map((a) => a.id);
+
+    if (appIds.length > 0) {
+      await tx.applicationAnswer.deleteMany({
+        where: { applicationId: { in: appIds } },
+      });
+      await tx.applicationNote.deleteMany({
+        where: { applicationId: { in: appIds } },
+      });
+      await tx.applicationEvent.deleteMany({
+        where: { applicationId: { in: appIds } },
+      });
+      await tx.eEOResponse.deleteMany({
+        where: { applicationId: { in: appIds } },
+      });
+      // EmailLog uses SetNull — detach rather than delete to keep the outbox.
+      await tx.emailLog.updateMany({
+        where: { applicationId: { in: appIds } },
+        data: { applicationId: null },
+      });
+      await tx.application.deleteMany({ where: { id: { in: appIds } } });
+    }
+
+    await tx.savedJob.deleteMany({ where: { jobId } });
+    await tx.screeningQuestion.deleteMany({ where: { jobId } });
+    await tx.jobLocation.deleteMany({ where: { jobId } });
+    await tx.job.delete({ where: { id: jobId } });
+  });
+
+  revalidatePath("/admin/jobs");
+  redirect("/admin/jobs");
+}
+
+// ---------------------------------------------------------------------------
 // Screening questions (nice-to-have; called from edit page)
 // ---------------------------------------------------------------------------
 
