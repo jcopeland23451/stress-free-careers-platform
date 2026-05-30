@@ -21,9 +21,9 @@ export function DemoRoleSwitcher({ currentRole }: { currentRole: Role }) {
     <div
       role="group"
       aria-label="Demo: view the admin as a different role"
-      className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-muted/60 p-1"
+      className="flex w-max flex-nowrap items-center gap-1 rounded-lg border border-border bg-muted/60 p-1"
     >
-      <span className="px-2 text-xs font-medium text-muted-foreground">
+      <span className="hidden whitespace-nowrap px-2 text-xs font-medium text-muted-foreground sm:inline">
         View as
       </span>
       {ROLES.map((role) => {
