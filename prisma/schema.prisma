@@ -1,0 +1,305 @@
+// Stress-Free Auto Care careers platform — data model (SQLite).
+// Note: SQLite has no enums or scalar arrays, so we use String fields with
+// documented allowed values (see src/lib/constants.ts) and Json for lists.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// Org hierarchy:  Organization > Region > District > Location (shop)
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  about     String?
+  logoUrl   String?
+  regions   Region[]
+  createdAt DateTime @default(now())
+}
+
+model Region {
+  id        String       @id @default(cuid())
+  name      String
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  districts District[]
+  users     User[]
+  createdAt DateTime     @default(now())
+}
+
+model District {
+  id        String     @id @default(cuid())
+  name      String
+  regionId  String
+  region    Region     @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  locations Location[]
+  users     User[]
+  createdAt DateTime   @default(now())
+}
+
+model Location {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  address      String
+  city         String
+  state        String // "CA" | "TX"
+  zip          String
+  lat          Float
+  lng          Float
+  phone        String?
+  photos       Json? // string[]
+  districtId   String
+  district     District      @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  users        User[]
+  jobLinks     JobLocation[]
+  applications Application[] @relation("PreferredLocation")
+  createdAt    DateTime      @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Admin users — role + cascading scope (see src/lib/rbac.ts)
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String             @id @default(cuid())
+  email        String             @unique
+  name         String
+  passwordHash String
+  role         String // CORPORATE | REGIONAL | DISTRICT | GM
+  regionId     String?
+  region       Region?            @relation(fields: [regionId], references: [id])
+  districtId   String?
+  district     District?          @relation(fields: [districtId], references: [id])
+  locationId   String?
+  location     Location?          @relation(fields: [locationId], references: [id])
+  createdJobs  Job[]              @relation("CreatedBy")
+  notes        ApplicationNote[]
+  events       ApplicationEvent[]
+  createdAt    DateTime           @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Jobs, templates, screening
+// ---------------------------------------------------------------------------
+
+model JobTemplate {
+  id             String   @id @default(cuid())
+  title          String
+  department     String
+  level          String? // A | B | null
+  employmentType String // FULL_TIME | PART_TIME
+  description    String
+  requirements   String
+  payType        String // HOURLY | SALARY
+  payMin         Int
+  payMax         Int
+  screening      Json? // default screening question set
+  jobs           Job[]
+  createdAt      DateTime @default(now())
+}
+
+model Job {
+  id             String              @id @default(cuid())
+  title          String
+  slug           String?
+  department     String
+  level          String?
+  employmentType String
+  isRemote       Boolean             @default(false)
+  payType        String
+  payMin         Int
+  payMax         Int
+  description    String
+  requirements   String
+  status         String              @default("OPEN") // DRAFT | OPEN | CLOSED
+  templateId     String?
+  template       JobTemplate?        @relation(fields: [templateId], references: [id])
+  createdById    String?
+  createdBy      User?               @relation("CreatedBy", fields: [createdById], references: [id])
+  locations      JobLocation[]
+  questions      ScreeningQuestion[]
+  applications   Application[]
+  savedBy        SavedJob[]
+  postedAt       DateTime            @default(now())
+  closesAt       DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model JobLocation {
+  id         String   @id @default(cuid())
+  jobId      String
+  job        Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, locationId])
+}
+
+model ScreeningQuestion {
+  id         String              @id @default(cuid())
+  jobId      String
+  job        Job                 @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  prompt     String
+  type       String // text | boolean | select | multiselect | number | cert
+  options    Json? // string[]
+  required   Boolean             @default(false)
+  isKnockout Boolean             @default(false)
+  order      Int                 @default(0)
+  answers    ApplicationAnswer[]
+}
+
+// ---------------------------------------------------------------------------
+// Candidates & applications
+// ---------------------------------------------------------------------------
+
+model Candidate {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  phone        String?
+  passwordHash String? // null = guest applicant
+  applications Application[]
+  resumes      ResumeFile[]
+  savedJobs    SavedJob[]
+  createdAt    DateTime      @default(now())
+}
+
+model ResumeFile {
+  id           String        @id @default(cuid())
+  candidateId  String
+  candidate    Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  filename     String
+  mime         String
+  size         Int
+  storagePath  String
+  applications Application[]
+  createdAt    DateTime      @default(now())
+}
+
+model Application {
+  id                  String              @id @default(cuid())
+  candidateId         String
+  candidate           Candidate           @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  jobId               String
+  job                 Job                 @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  preferredLocationId String?
+  preferredLocation   Location?           @relation("PreferredLocation", fields: [preferredLocationId], references: [id])
+  resumeId            String?
+  resume              ResumeFile?         @relation(fields: [resumeId], references: [id])
+  coverLetter         String?
+  stage               String              @default("APPLIED") // APPLIED | SCREENING | INTERVIEW | OFFER | HIRED | REJECTED | WITHDRAWN
+  source              String?             @default("careers_site")
+  flagged             Boolean             @default(false) // knockout flagged for review
+  consentAt           DateTime?
+  answers             ApplicationAnswer[]
+  notes               ApplicationNote[]
+  events              ApplicationEvent[]
+  eeo                 EEOResponse?
+  emails              EmailLog[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+}
+
+model ApplicationAnswer {
+  id            String            @id @default(cuid())
+  applicationId String
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      ScreeningQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  value         Json
+}
+
+// EEO/OFCCP voluntary self-id. Stored SEPARATELY; never shown in hiring-stage UI.
+model EEOResponse {
+  id               String      @id @default(cuid())
+  applicationId    String      @unique
+  application      Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  gender           String?
+  raceEthnicity    String?
+  veteranStatus    String?
+  disabilityStatus String?
+  createdAt        DateTime    @default(now())
+}
+
+model ApplicationNote {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        User        @relation(fields: [authorId], references: [id])
+  body          String
+  createdAt     DateTime    @default(now())
+}
+
+model ApplicationEvent {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStage     String?
+  toStage       String
+  byUserId      String?
+  byUser        User?       @relation(fields: [byUserId], references: [id])
+  createdAt     DateTime    @default(now())
+}
+
+model EmailLog {
+  id            String       @id @default(cuid())
+  to            String
+  subject       String
+  body          String
+  applicationId String?
+  application   Application?  @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+}
+
+model SavedJob {
+  id          String    @id @default(cuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([candidateId, jobId])
+}
+
+// ---------------------------------------------------------------------------
+// Employer-branding content (light)
+// ---------------------------------------------------------------------------
+
+model Testimonial {
+  id           String  @id @default(cuid())
+  name         String
+  role         String
+  locationName String?
+  quote        String
+  photoUrl     String?
+  order        Int     @default(0)
+}
+
+model Benefit {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  icon        String?
+  order       Int    @default(0)
+}
+
+model TrainingProgram {
+  id      String @id @default(cuid())
+  slug    String @unique
+  title   String
+  summary String
+  body    String
+  order   Int    @default(0)
+}
