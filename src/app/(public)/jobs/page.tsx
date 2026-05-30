@@ -201,7 +201,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
                         Previous
                       </Link>
                     ) : (
-                      <span>
+                      <span className="inline-flex items-center gap-2">
                         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                         Previous
                       </span>
@@ -225,7 +225,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
                         <ChevronRight className="h-4 w-4" aria-hidden="true" />
                       </Link>
                     ) : (
-                      <span>
+                      <span className="inline-flex items-center gap-2">
                         Next
                         <ChevronRight className="h-4 w-4" aria-hidden="true" />
                       </span>
